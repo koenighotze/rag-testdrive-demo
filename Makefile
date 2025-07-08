@@ -43,7 +43,5 @@ test.report: test
 	go tool cover -html=coverage.out
 
 build: get.dependencies
-	go build -o rag-demo ./cmd/rag-demo
-
-run.local:
-	go run ./cmd/rag-demo/main.go
+	go build -o rag ./cmd/rag
+	go build -o query-service ./cmd/api
