@@ -2,12 +2,14 @@ package query
 
 import (
 	"context"
+	"errors"
 	"log"
 
 	"github.com/tmc/langchaingo/llms"
 	"github.com/tmc/langchaingo/llms/ollama"
 )
 
+//nolint:unused
 const inputGuardrail = `SYSTEM - Guardrail / Moderation Layer
 You are **SafetySentinel**, an impartial content-safety classifier.
 Your only task is to inspect the single user prompt supplied in the
@@ -86,10 +88,9 @@ func ApplyRequestGuardrail(guardRailLlm *ollama.LLM, rawQuery string) (sanitized
 	log.Printf("LLM answered with '%s'\n", completion)
 
 	if completion != "safe" {
-		// We could no use the larger model and check the reasons better
-
+		// We could use the larger model and check the reasons better
 		log.Printf("Unsafe query! Reason %s", completion)
-		return "I cannot answer your query. It does not conform to our standards!", nil
+		return "", errors.New("cannot answer your query. It does not conform to our standards")
 	}
 
 	return rawQuery, nil

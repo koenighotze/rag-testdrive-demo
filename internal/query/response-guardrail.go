@@ -2,12 +2,16 @@ package query
 
 import (
 	"context"
+	"errors"
 	"log"
+	"regexp"
+	"strings"
 
 	"github.com/tmc/langchaingo/llms"
 	"github.com/tmc/langchaingo/llms/ollama"
 )
 
+//nolint:unused
 const responseGuardrail = `SYSTEM - Output-Moderation Layer
 You are **OutputSentinel**, an impartial safety classifier.
 You receive the LLM-generated candidate response in the variable
@@ -83,6 +87,17 @@ V. OPERATIONAL NOTES
 {draft_output}
 `
 
+func cleanupAnswer(rawResponse string) string {
+	re := regexp.MustCompile(`(?s)<think>(.*?)</think>`)
+
+	sub := re.FindSubmatch([]byte(rawResponse))
+	if len(sub) == 2 {
+		log.Printf("Thinking process: %s", strings.ReplaceAll(strings.TrimSpace(string(sub[1])), "\n", " "))
+	}
+
+	return strings.TrimSpace(string(re.ReplaceAll([]byte(rawResponse), nil)))
+}
+
 func ApplyResponseGuardrail(guardRailLlm *ollama.LLM, rawResponse string) (sanitized string, err error) {
 	log.Println("Applying response guardrail ---- TODO!")
 	completion, err := llms.GenerateFromSinglePrompt(context.Background(), guardRailLlm, rawResponse, llms.WithTemperature(0))
@@ -93,10 +108,9 @@ func ApplyResponseGuardrail(guardRailLlm *ollama.LLM, rawResponse string) (sanit
 
 	if completion != "safe" {
 		// We could no use the larger model and check the reasons better
-
 		log.Printf("Unsafe query! Reason %s", completion)
-		return "I cannot answer your query. The response might not be good for you!", nil
+		return "", errors.New("cannot answer your query. The response might not be good for you")
 	}
 
-	return rawResponse, nil
+	return cleanupAnswer(rawResponse), nil
 }

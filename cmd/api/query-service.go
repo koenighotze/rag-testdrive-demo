@@ -23,16 +23,17 @@ func createQueryHandler(llm *ollama.LLM, guardRailLlm *ollama.LLM) http.HandlerF
 		}
 
 		response, err := query.GenerateAnswer(llm, guardRailLlm, request.Query)
-
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			log.Printf("Cannot generate answer: %s\n", err.Error())
-			fmt.Fprint(w, "Sorry, cannot generate an answer at this time!\n")
+			//nolint:errcheck
+			fmt.Fprintf(w, "Sorry, cannot generate an answer at this time! Reason: %s\n", err.Error())
 			return
 		}
 
 		w.WriteHeader(http.StatusOK)
 		log.Printf("Generated response: %s\n", response)
+		//nolint:errcheck
 		fmt.Fprintf(w, "%s", response)
 	}
 }
