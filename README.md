@@ -29,10 +29,6 @@ Playground for working with RAG and GenAI using Go-Lang.
 
 ## Draft proposal
 
-Below is a complete walk-through for building an *end-to-end Retrieval-Augmented Generation* (RAG) system in **Go**, with both the LLM **and** the vector database self-hosted on **Google Cloud Run**.
-
----
-
 ### 1.  What is RAG?
 
 Retrieval-Augmented Generation enriches a language-model prompt with documents fetched from a vector store that are semantically closest to the user’s query.

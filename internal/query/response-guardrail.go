@@ -99,7 +99,7 @@ func cleanupAnswer(rawResponse string) string {
 }
 
 func ApplyResponseGuardrail(guardRailLlm *ollama.LLM, rawResponse string) (sanitized string, err error) {
-	log.Println("Applying response guardrail ---- TODO!")
+	log.Println("Applying response guardrail")
 	completion, err := llms.GenerateFromSinglePrompt(context.Background(), guardRailLlm, rawResponse, llms.WithTemperature(0))
 	if err != nil {
 		return "", err
