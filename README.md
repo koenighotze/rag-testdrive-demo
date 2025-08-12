@@ -27,6 +27,14 @@ Playground for working with RAG and GenAI using Go-Lang.
 - test if models are alive
 - refactor
 
+
+## Docu links
+
+https://pkg.go.dev/github.com/tmc/langchaingo@v0.1.13
+https://pkg.go.dev/github.com/tmc/langchaingo@v0.1.13/embeddings#section-documentation
+https://pkg.go.dev/github.com/qdrant/go-client@v1.15.2/qdrant#section-documentation
+https://qdrant.tech/documentation/quickstart/
+
 ## Draft proposal
 
 ### 1.  What is RAG?
@@ -46,7 +54,7 @@ The typical flow is:
 
 ```text
 ┌────────────────┐                     ┌─────────────────┐
-│  Client / UI   │──HTTP / JSON──────►│  Go RAG API     │
+│  Client / UI   │──HTTP / JSON───────►│  Go RAG API     │
 └────────────────┘                     │  (Cloud Run)    │
         ▲                              │  • langchaingo  │
         │                              │  • qdrant-go    │
