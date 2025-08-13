@@ -16,7 +16,7 @@ var (
 
 // Client returns the singleton *qdrant.Client.
 // The first caller creates the connection and (optionally) the collection.
-func Client() (*qdrant.Client, error) {
+func Client(truncate bool) (*qdrant.Client, error) {
 	once.Do(func() {
 		c, err := qdrant.NewClient(&qdrant.Config{
 			Host: "localhost",
@@ -27,7 +27,7 @@ func Client() (*qdrant.Client, error) {
 			return
 		}
 
-		if err := ensureCollection(context.Background(), c, "rag"); err != nil {
+		if err := ensureCollection(context.Background(), c, "rag", truncate); err != nil {
 			initErr = err
 			return
 		}
@@ -38,14 +38,21 @@ func Client() (*qdrant.Client, error) {
 	return client, initErr
 }
 
-func ensureCollection(ctx context.Context, c *qdrant.Client, name string) error {
+func ensureCollection(ctx context.Context, c *qdrant.Client, name string, truncate bool) error {
 	exists, err := c.CollectionExists(ctx, name)
 	if err != nil {
 		return err
 	}
 	if exists {
-		return c.DeleteCollection(context.Background(), name)
+		if truncate {
+			return nil
+		}
+
+		log.Println("Truncating collection: ", name)
+		c.DeleteCollection(context.Background(), name)
 	}
+
+	log.Println("Creating collection: ", name)
 
 	return c.CreateCollection(context.Background(), &qdrant.CreateCollection{
 		CollectionName: name,
