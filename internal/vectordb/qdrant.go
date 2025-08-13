@@ -49,6 +49,7 @@ func ensureCollection(ctx context.Context, c *qdrant.Client, name string, trunca
 		}
 
 		log.Println("Truncating collection: ", name)
+		//nolint:errcheck
 		c.DeleteCollection(context.Background(), name)
 	}
 
