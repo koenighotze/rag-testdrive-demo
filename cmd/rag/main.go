@@ -7,16 +7,13 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/koenighotze/rag-demo/config"
 	"github.com/koenighotze/rag-demo/internal/embedding"
 	"github.com/koenighotze/rag-demo/internal/vectordb"
 	"github.com/ledongthuc/pdf"
-	"github.com/qdrant/go-client/qdrant"
 	"github.com/tmc/langchaingo/embeddings"
-	"github.com/tmc/langchaingo/textsplitter"
 )
 
-func walkTextCorpus(qdrantClient *qdrant.Client) (embeddings.Embedder, error) {
+func walkTextCorpus(vectorDbClient *vectordb.VectorDbClient) (embeddings.Embedder, error) {
 	embedder := embedding.Default()
 
 	return embedder, filepath.WalkDir("text-data-corpus/", func(path string, d fs.DirEntry, err error) error {
@@ -34,11 +31,11 @@ func walkTextCorpus(qdrantClient *qdrant.Client) (embeddings.Embedder, error) {
 			return nil
 		}
 
-		return extractTextChunksOnParagraphsFromPdf(qdrantClient, embedder, path)
+		return extractTextChunksOnParagraphsFromPdf(vectorDbClient, embedder, path)
 	})
 }
 
-func extractTextChunksOnParagraphsFromPdf(qdrantClient *qdrant.Client, embedder embeddings.Embedder, path string) error {
+func extractTextChunksOnParagraphsFromPdf(vectorDbClient *vectordb.VectorDbClient, embedder embeddings.Embedder, path string) error {
 	log.Printf("Processing text in file %s", path)
 	file, reader, err := pdf.Open(path)
 	if err != nil {
@@ -62,53 +59,29 @@ func extractTextChunksOnParagraphsFromPdf(qdrantClient *qdrant.Client, embedder 
 
 		if fullText.Len() >= 3000 {
 			log.Println("Max length of fulltext block reached. Should store chunks now...")
-			if err = storeChunks(qdrantClient, embedder, path, fullText.String()); err != nil {
+			if err = storeChunks(vectorDbClient, embedder, path, fullText.String()); err != nil {
 				log.Printf("Cannot store chunks because of %s", err)
 			}
 			fullText.Reset()
 			continue
 		}
 	}
-	if err = storeChunks(qdrantClient, embedder, path, fullText.String()); err != nil {
+	if err = storeChunks(vectorDbClient, embedder, path, fullText.String()); err != nil {
 		log.Printf("Cannot store chunks because of %s", err)
 	}
 
 	return nil
 }
 
-// TODO DAS HIER SOLLTE VERSCHOBEN WERDEN!
-func storeChunks(qdrantClient *qdrant.Client, embedder embeddings.Embedder, path string, text string) error {
-	if len(text) <= 0 {
-		return nil
-	}
-
-	chunks, err := textsplitter.NewTokenSplitter().SplitText(text)
+func storeChunks(vectorDbClient *vectordb.VectorDbClient, embedder embeddings.Embedder, path string, text string) error {
+	items, err := embedding.EmbedAllDocuments(embedder, path, text)
 	if err != nil {
 		return err
 	}
-
-	embeds, err := embedder.EmbedDocuments(context.Background(), chunks)
-	if err != nil {
-		return err
-	}
-
-	log.Printf("Generated embeddings with size %d for text of length %d", len(embeds), len(text))
-
-	points := vectordb.CreatePointsFromEmbeddings(embeds, path, chunks)
-
-	result, err := qdrantClient.Upsert(context.Background(), &qdrant.UpsertPoints{
-		CollectionName: "rag",
-		Points:         points,
-	})
-
-	if result != nil {
-		log.Printf("Result of storing chunks: %s", result.Status)
-	}
-
-	return err
+	return vectorDbClient.AddPointsToCollection(items)
 }
 
-func searchForItem(embedder embeddings.Embedder, client *qdrant.Client, query string) {
+func searchForItem(embedder embeddings.Embedder, vectorDbClient *vectordb.VectorDbClient, query string) {
 	log.Println("SEARCHING FOR ", query)
 
 	embeds, err := embedder.EmbedDocuments(context.Background(), []string{query})
@@ -116,7 +89,7 @@ func searchForItem(embedder embeddings.Embedder, client *qdrant.Client, query st
 		return
 	}
 
-	searchResult, err := vectordb.ExecuteSearch(client, embeds[0], vectordb.DefaultQdrantSearchConfig())
+	searchResult, err := vectorDbClient.ExecuteSearch(embeds[0])
 	if err != nil {
 		panic(err)
 	}
@@ -131,10 +104,7 @@ func searchForItem(embedder embeddings.Embedder, client *qdrant.Client, query st
 }
 
 func main() {
-	client, err := vectordb.Client(true, config.QdrantConfig())
-	if err != nil {
-		log.Panic(err)
-	}
+	client := vectordb.TruncatingVectorDbClient()
 
 	embedder, err := walkTextCorpus(client)
 	if err != nil {

@@ -5,7 +5,6 @@ import (
 	"log"
 	"sync"
 
-	"github.com/google/uuid"
 	"github.com/koenighotze/rag-demo/config"
 	"github.com/qdrant/go-client/qdrant"
 )
@@ -16,23 +15,7 @@ var (
 	initErr error
 )
 
-type QdrantSearchConfig struct {
-	Exact          bool
-	IndexedOnly    bool
-	ScoreThreshold float32
-	BeamSize       uint64
-}
-
-func DefaultQdrantSearchConfig() QdrantSearchConfig {
-	return QdrantSearchConfig{
-		Exact:          false,
-		IndexedOnly:    false,
-		BeamSize:       uint64(200),
-		ScoreThreshold: float32(0.3),
-	}
-}
-
-func ExecuteSearch(client *qdrant.Client, search []float32, searchConfig QdrantSearchConfig) ([]*qdrant.ScoredPoint, error) {
+func executeSearch(client *qdrant.Client, search []float32, searchConfig QdrantSearchConfig) ([]*qdrant.ScoredPoint, error) {
 	searchResult, err := client.Query(context.Background(), &qdrant.QueryPoints{
 		CollectionName: "rag",
 		Query:          qdrant.NewQuery(search...),
@@ -86,56 +69,6 @@ func ExecuteSearch(client *qdrant.Client, search []float32, searchConfig QdrantS
 	return searchResult, err
 }
 
-func CreatePointsFromEmbeddings(embeds [][]float32, sourceDocument string, chunks []string) []*qdrant.PointStruct {
-	var points []*qdrant.PointStruct
-	for i, e := range embeds {
-		points = append(points, &qdrant.PointStruct{
-			Id:      qdrant.NewIDUUID(uuid.New().String()),
-			Vectors: qdrant.NewVectors(e...),
-			Payload: qdrant.NewValueMap(map[string]any{
-				"path":  sourceDocument,
-				"chunk": chunks[i],
-			}),
-		})
-	}
-	return points
-}
-
-func DefaultClient() *qdrant.Client {
-	config := config.QdrantConfig()
-	client, err := Client(false, config)
-
-	if err != nil {
-		log.Panic(err)
-	}
-
-	return client
-}
-
-// Client returns the singleton *qdrant.Client.
-// The first caller creates the connection and (optionally) the collection.
-func Client(truncate bool, config config.Qdrant) (*qdrant.Client, error) {
-	once.Do(func() {
-		c, err := qdrant.NewClient(&qdrant.Config{
-			Host: config.Host,
-			Port: config.Port,
-		})
-		if err != nil {
-			initErr = err
-			return
-		}
-
-		if err := ensureCollection(context.Background(), c, "rag", truncate); err != nil {
-			initErr = err
-			return
-		}
-
-		client = c
-	})
-
-	return client, initErr
-}
-
 func ensureCollection(ctx context.Context, c *qdrant.Client, name string, truncate bool) error {
 	exists, err := c.CollectionExists(ctx, name)
 	if err != nil {
@@ -170,6 +103,37 @@ func ensureCollection(ctx context.Context, c *qdrant.Client, name string, trunca
 			Distance: qdrant.Distance_Cosine,
 		}),
 	})
+}
+
+func defaultClient() *qdrant.Client {
+	client, err := newClient(false, config.QdrantConfig())
+
+	if err != nil {
+		log.Panic(err)
+	}
+
+	return client
+}
+
+func newClient(truncate bool, config config.Qdrant) (*qdrant.Client, error) {
+	once.Do(func() {
+		client, err := qdrant.NewClient(&qdrant.Config{
+			Host: config.Host,
+			Port: config.Port,
+		})
+
+		if err != nil {
+			initErr = err
+			return
+		}
+
+		if err := ensureCollection(context.Background(), client, config.CollectionName, truncate); err != nil {
+			initErr = err
+			return
+		}
+	})
+
+	return client, initErr
 }
 
 func Close() {

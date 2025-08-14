@@ -19,9 +19,9 @@ func withQdrant(query string) (string, error) {
 		return "", err
 	}
 
-	client := vectordb.DefaultClient()
+	client := vectordb.DefaultVectorDbClient()
 
-	res, err := vectordb.ExecuteSearch(client, embed[0], vectordb.DefaultQdrantSearchConfig())
+	res, err := client.ExecuteSearch(embed[0])
 
 	if err != nil {
 		return "", err

@@ -2,7 +2,6 @@ package config
 
 import (
 	"encoding/json"
-	"errors"
 	"os"
 	"path/filepath"
 	"sync"
@@ -41,8 +40,6 @@ type Embedding struct {
 }
 
 func DefaultPath() string {
-	// Decide on a sensible default; XDG is common on Linux/macOS.
-	// Fallback to working directory for simplicity.
 	return "config.json"
 }
 
@@ -55,9 +52,7 @@ func Load(path string) (Config, error) {
 	if err := json.Unmarshal(b, &cfg); err != nil {
 		return Config{}, err
 	}
-	if cfg.ServerAddr == "" {
-		return Config{}, errors.New("server_addr must be set")
-	}
+	// TODO Validation
 	return cfg, nil
 }
 

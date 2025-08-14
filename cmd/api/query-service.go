@@ -11,7 +11,9 @@ import (
 	"github.com/tmc/langchaingo/llms/ollama"
 )
 
-func createQueryHandler(llm *ollama.LLM, guardRailLlm *ollama.LLM) http.HandlerFunc {
+type QueryFunction func(llm *ollama.LLM, guardRailLlm *ollama.LLM, query string) (string, error)
+
+func createQueryHandler(llm *ollama.LLM, guardRailLlm *ollama.LLM, queryFunc QueryFunction) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request struct {
 			Query string
@@ -23,35 +25,7 @@ func createQueryHandler(llm *ollama.LLM, guardRailLlm *ollama.LLM) http.HandlerF
 			return
 		}
 
-		response, err := query.GeneratePlainAnswer(llm, guardRailLlm, request.Query)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			log.Printf("Cannot generate answer: %s\n", err.Error())
-			//nolint:errcheck
-			fmt.Fprintf(w, "Sorry, cannot generate an answer at this time! Reason: %s\n", err.Error())
-			return
-		}
-
-		w.WriteHeader(http.StatusOK)
-		log.Printf("Generated response: %s\n", response)
-		//nolint:errcheck
-		fmt.Fprintf(w, "%s", response)
-	}
-}
-
-func createRagQueryHandler(llm *ollama.LLM, guardRailLlm *ollama.LLM) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var request struct {
-			Query string
-		}
-		err := json.NewDecoder(r.Body).Decode(&request)
-		if err != nil {
-			log.Printf("Cannot parse request body: %s\n", err.Error())
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-
-		response, err := query.GenerateAnswerWithRAG(llm, guardRailLlm, request.Query)
+		response, err := queryFunc(llm, guardRailLlm, request.Query)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			log.Printf("Cannot generate answer: %s\n", err.Error())
@@ -69,7 +43,7 @@ func createRagQueryHandler(llm *ollama.LLM, guardRailLlm *ollama.LLM) http.Handl
 
 func main() {
 	config := config.Default()
-	log.Println(config)
+	log.Println("Running with configuration: ", config)
 
 	llm, err := ollama.New(ollama.WithModel(config.Query.MainModel))
 	if err != nil {
@@ -81,8 +55,8 @@ func main() {
 		log.Default().Fatalln(err)
 	}
 
-	http.HandleFunc("/query", createQueryHandler(llm, guardRailLlm))
-	http.HandleFunc("/ragquery", createRagQueryHandler(llm, guardRailLlm))
+	http.HandleFunc("/query", createQueryHandler(llm, guardRailLlm, query.GeneratePlainAnswer))
+	http.HandleFunc("/ragquery", createQueryHandler(llm, guardRailLlm, query.GenerateAnswerWithRAG))
 
 	fmt.Println("Starting server on ", config.ServerAddr)
 	log.Fatal(http.ListenAndServe(config.ServerAddr, nil))
