@@ -39,6 +39,7 @@ func createQueryHandler(llm *ollama.LLM, guardRailLlm *ollama.LLM) http.HandlerF
 }
 
 func main() {
+
 	llm, err := ollama.New(ollama.WithModel("deepseek-r1:1.5b"))
 	if err != nil {
 		log.Default().Fatalln(err)

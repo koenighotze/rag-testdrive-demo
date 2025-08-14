@@ -44,17 +44,16 @@ func ensureCollection(ctx context.Context, c *qdrant.Client, name string, trunca
 		return err
 	}
 	if exists {
-		if truncate {
+		if !truncate {
 			return nil
 		}
 
-		log.Println("Truncating collection: ", name)
+		log.Println("Truncating collection", name)
 		//nolint:errcheck
 		c.DeleteCollection(context.Background(), name)
 	}
 
 	log.Println("Creating collection: ", name)
-
 	return c.CreateCollection(context.Background(), &qdrant.CreateCollection{
 		CollectionName: name,
 		VectorsConfig: qdrant.NewVectorsConfig(&qdrant.VectorParams{

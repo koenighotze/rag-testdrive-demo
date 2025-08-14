@@ -90,10 +90,10 @@ V. OPERATIONAL NOTES
 func cleanupAnswer(rawResponse string) string {
 	re := regexp.MustCompile(`(?s)<think>(.*?)</think>`)
 
-	sub := re.FindSubmatch([]byte(rawResponse))
-	if len(sub) == 2 {
-		log.Printf("Thinking process: %s", strings.ReplaceAll(strings.TrimSpace(string(sub[1])), "\n", " "))
-	}
+	// sub := re.FindSubmatch([]byte(rawResponse))
+	// if len(sub) == 2 {
+	// log.Printf("Thinking process: %s", strings.ReplaceAll(strings.TrimSpace(string(sub[1])), "\n", " "))
+	// }
 
 	return strings.TrimSpace(string(re.ReplaceAll([]byte(rawResponse), nil)))
 }
@@ -104,7 +104,7 @@ func ApplyResponseGuardrail(guardRailLlm *ollama.LLM, rawResponse string) (sanit
 	if err != nil {
 		return "", err
 	}
-	log.Printf("LLM answered with '%s'\n", completion)
+	// log.Printf("LLM answered with '%s'\n", completion)
 
 	if completion != "safe" {
 		// We could no use the larger model and check the reasons better

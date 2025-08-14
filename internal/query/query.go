@@ -30,6 +30,22 @@ func newEmbedder(embedderClient embeddings.EmbedderClient) embeddings.Embedder {
 	return embedder
 }
 
+func executeSearch(client *qdrant.Client, search []float32) ([]*qdrant.ScoredPoint, error) {
+	searchResult, err := client.Query(context.Background(), &qdrant.QueryPoints{
+		CollectionName: "rag",
+		Query:          qdrant.NewQuery(search...),
+		Params: &qdrant.SearchParams{
+			Exact: qdrant.PtrOf(false),
+			// IndexedOnly: qdrant.PtrOf(true),
+			HnswEf: qdrant.PtrOf(uint64(200)),
+		},
+		ScoreThreshold: qdrant.PtrOf(float32(0.3)),
+		WithPayload:    qdrant.NewWithPayloadEnable(true),
+	})
+
+	return searchResult, err
+}
+
 func withqdrant(query string) (string, error) {
 	embedder := newEmbedder(newEmbedderModel())
 
@@ -43,15 +59,7 @@ func withqdrant(query string) (string, error) {
 		return "", err
 	}
 
-	res, err := client.Query(context.Background(), &qdrant.QueryPoints{
-		CollectionName: "rag",
-		Query:          qdrant.NewQuery(embed[0]...),
-		Params: &qdrant.SearchParams{
-			Exact:  qdrant.PtrOf(false),
-			HnswEf: qdrant.PtrOf(uint64(128)),
-		},
-		Limit: qdrant.PtrOf(uint64(2)), // Only top 2 results!
-	})
+	res, err := executeSearch(client, embed[0])
 
 	if err != nil {
 		return "", err
@@ -62,9 +70,6 @@ func withqdrant(query string) (string, error) {
 		return "", nil
 	}
 
-	log.Println(res)
-	log.Println(res[0].Payload)
-
 	return res[0].Payload["chunk"].GetStringValue(), nil
 }
 
@@ -74,7 +79,7 @@ func sendToLLM(llm *ollama.LLM, query string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	log.Printf("LLM answered with '%s'\n", completion)
+	// log.Printf("LLM answered with '%s'\n", completion)
 	return completion, nil
 }
 
@@ -93,8 +98,14 @@ Answer the user using only the context below.
 Context:
 %s
 
-Question: %s
-Answer:`, additionalContext, query)
+Question: %s`, additionalContext, query)
+
+	if additionalContext == "" {
+		prompt = fmt.Sprintf(`You are a helpful assistant.
+Answer the following question:
+
+Question: %s`, query)
+	}
 
 	log.Println(query)
 	completion, err := sendToLLM(llm, prompt)
