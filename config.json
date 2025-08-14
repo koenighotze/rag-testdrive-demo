@@ -1,0 +1,11 @@
+{
+  "query": {
+    "main_model_name": "deepseek-r1:1.5b",
+    "input_guardrail_model_name": "llama-guard3:1b",
+    "output_guardrail_model_name": "llama-guard3:1b"
+  },
+  "embedding": {
+    "model_name": "quentinz/bge-base-zh-v1.5:latest"
+  },
+  "server_addr": ":8080"
+}
