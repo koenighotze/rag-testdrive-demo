@@ -1,13 +1,12 @@
 package query
 
 import (
-	"context"
 	"errors"
 	"log"
 	"regexp"
 	"strings"
 
-	"github.com/tmc/langchaingo/llms"
+	"github.com/koenighotze/rag-demo/config"
 	"github.com/tmc/langchaingo/llms/ollama"
 )
 
@@ -90,21 +89,21 @@ V. OPERATIONAL NOTES
 func cleanupAnswer(rawResponse string) string {
 	re := regexp.MustCompile(`(?s)<think>(.*?)</think>`)
 
-	// sub := re.FindSubmatch([]byte(rawResponse))
-	// if len(sub) == 2 {
-	// log.Printf("Thinking process: %s", strings.ReplaceAll(strings.TrimSpace(string(sub[1])), "\n", " "))
-	// }
+	sub := re.FindSubmatch([]byte(rawResponse))
+	if len(sub) == 2 {
+		log.Printf("Thinking process: %s", strings.ReplaceAll(strings.TrimSpace(string(sub[1])), "\n", " "))
+	}
 
 	return strings.TrimSpace(string(re.ReplaceAll([]byte(rawResponse), nil)))
 }
 
 func ApplyResponseGuardrail(guardRailLlm *ollama.LLM, rawResponse string) (sanitized string, err error) {
 	log.Println("Applying response guardrail")
-	completion, err := llms.GenerateFromSinglePrompt(context.Background(), guardRailLlm, rawResponse, llms.WithTemperature(0))
+	completion, err := sendToLLM(guardRailLlm, rawResponse, PromptConfig{temperature: config.Default().Query.OutputTemperature})
 	if err != nil {
 		return "", err
 	}
-	// log.Printf("LLM answered with '%s'\n", completion)
+	log.Printf("LLM answered with '%s'\n", completion)
 
 	if completion != "safe" {
 		// We could no use the larger model and check the reasons better

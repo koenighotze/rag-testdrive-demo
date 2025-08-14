@@ -1,11 +1,10 @@
 package query
 
 import (
-	"context"
 	"errors"
 	"log"
 
-	"github.com/tmc/langchaingo/llms"
+	"github.com/koenighotze/rag-demo/config"
 	"github.com/tmc/langchaingo/llms/ollama"
 )
 
@@ -81,7 +80,7 @@ IV. OPERATIONAL NOTES
 
 func ApplyRequestGuardrail(guardRailLlm *ollama.LLM, rawQuery string) (sanitized string, err error) {
 	log.Println("Applying request guardrail")
-	completion, err := llms.GenerateFromSinglePrompt(context.Background(), guardRailLlm, rawQuery, llms.WithTemperature(0))
+	completion, err := sendToLLM(guardRailLlm, rawQuery, PromptConfig{temperature: config.Default().Query.InputTemperature})
 	if err != nil {
 		return "", err
 	}

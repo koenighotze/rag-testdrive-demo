@@ -3,6 +3,7 @@ package query
 import (
 	"log"
 
+	"github.com/koenighotze/rag-demo/config"
 	"github.com/tmc/langchaingo/llms/ollama"
 )
 
@@ -14,7 +15,8 @@ func GeneratePlainAnswer(llm *ollama.LLM, guardRailLlm *ollama.LLM, query string
 		return "", err
 	}
 
-	completion, err := sendToLLM(llm, sanitizedQuery)
+	// TODO refactor
+	completion, err := sendToLLM(llm, sanitizedQuery, PromptConfig{temperature: config.Default().Query.MainTemperature})
 	if err != nil {
 		return "", err
 	}

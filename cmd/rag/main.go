@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/koenighotze/rag-demo/config"
 	"github.com/koenighotze/rag-demo/internal/embedding"
 	"github.com/koenighotze/rag-demo/internal/vectordb"
 	"github.com/ledongthuc/pdf"
@@ -115,7 +116,7 @@ func searchForItem(embedder embeddings.Embedder, client *qdrant.Client, query st
 		return
 	}
 
-	searchResult, err := vectordb.ExecuteSearch(client, embeds[0])
+	searchResult, err := vectordb.ExecuteSearch(client, embeds[0], vectordb.DefaultQdrantSearchConfig())
 	if err != nil {
 		panic(err)
 	}
@@ -130,8 +131,7 @@ func searchForItem(embedder embeddings.Embedder, client *qdrant.Client, query st
 }
 
 func main() {
-	client, err := vectordb.Client(true)
-
+	client, err := vectordb.Client(true, config.QdrantConfig())
 	if err != nil {
 		log.Panic(err)
 	}

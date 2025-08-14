@@ -5,26 +5,26 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/koenighotze/rag-demo/config"
 	"github.com/koenighotze/rag-demo/internal/embedding"
 	"github.com/koenighotze/rag-demo/internal/vectordb"
-	"github.com/qdrant/go-client/qdrant"
 	"github.com/tmc/langchaingo/llms/ollama"
 )
 
-func executeSearch(client *qdrant.Client, search []float32) ([]*qdrant.ScoredPoint, error) {
-	searchResult, err := client.Query(context.Background(), &qdrant.QueryPoints{
-		CollectionName: "rag",
-		Query:          qdrant.NewQuery(search...),
-		Params: &qdrant.SearchParams{
-			Exact:  qdrant.PtrOf(false),
-			HnswEf: qdrant.PtrOf(uint64(200)),
-		},
-		ScoreThreshold: qdrant.PtrOf(float32(0.3)),
-		WithPayload:    qdrant.NewWithPayloadEnable(true),
-	})
+// func executeSearch(client *qdrant.Client, search []float32) ([]*qdrant.ScoredPoint, error) {
+// 	searchResult, err := client.Query(context.Background(), &qdrant.QueryPoints{
+// 		CollectionName: "rag",
+// 		Query:          qdrant.NewQuery(search...),
+// 		Params: &qdrant.SearchParams{
+// 			Exact:  qdrant.PtrOf(false),
+// 			HnswEf: qdrant.PtrOf(uint64(200)),
+// 		},
+// 		ScoreThreshold: qdrant.PtrOf(float32(0.3)),
+// 		WithPayload:    qdrant.NewWithPayloadEnable(true),
+// 	})
 
-	return searchResult, err
-}
+// 	return searchResult, err
+// }
 
 func withQdrant(query string) (string, error) {
 	embedder := embedding.Default()
@@ -34,12 +34,9 @@ func withQdrant(query string) (string, error) {
 		return "", err
 	}
 
-	client, err := vectordb.Client(false)
-	if err != nil {
-		return "", err
-	}
+	client := vectordb.DefaultClient()
 
-	res, err := executeSearch(client, embed[0])
+	res, err := vectordb.ExecuteSearch(client, embed[0], vectordb.DefaultQdrantSearchConfig())
 
 	if err != nil {
 		return "", err
@@ -78,7 +75,7 @@ Question: %s`, query)
 	}
 
 	log.Println(query)
-	completion, err := sendToLLM(llm, prompt)
+	completion, err := sendToLLM(llm, prompt, PromptConfig{temperature: config.Default().Query.MainTemperature})
 	if err != nil {
 		return "", err
 	}

@@ -8,9 +8,13 @@ import (
 	"github.com/tmc/langchaingo/llms/ollama"
 )
 
-func sendToLLM(llm *ollama.LLM, query string) (string, error) {
+type PromptConfig struct {
+	temperature float64
+}
+
+func sendToLLM(llm *ollama.LLM, query string, config PromptConfig) (string, error) {
 	log.Printf("Sending query '%s' to LLM\n", query)
-	completion, err := llms.GenerateFromSinglePrompt(context.Background(), llm, query, llms.WithTemperature(0))
+	completion, err := llms.GenerateFromSinglePrompt(context.Background(), llm, query, llms.WithTemperature(config.temperature))
 	if err != nil {
 		return "", err
 	}

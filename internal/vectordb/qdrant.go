@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
+	"github.com/koenighotze/rag-demo/config"
 	"github.com/qdrant/go-client/qdrant"
 )
 
@@ -15,7 +16,23 @@ var (
 	initErr error
 )
 
-func ExecuteSearch(client *qdrant.Client, search []float32) ([]*qdrant.ScoredPoint, error) {
+type QdrantSearchConfig struct {
+	Exact          bool
+	IndexedOnly    bool
+	ScoreThreshold float32
+	BeamSize       uint64
+}
+
+func DefaultQdrantSearchConfig() QdrantSearchConfig {
+	return QdrantSearchConfig{
+		Exact:          false,
+		IndexedOnly:    false,
+		BeamSize:       uint64(200),
+		ScoreThreshold: float32(0.3),
+	}
+}
+
+func ExecuteSearch(client *qdrant.Client, search []float32, searchConfig QdrantSearchConfig) ([]*qdrant.ScoredPoint, error) {
 	searchResult, err := client.Query(context.Background(), &qdrant.QueryPoints{
 		CollectionName: "rag",
 		Query:          qdrant.NewQuery(search...),
@@ -29,7 +46,7 @@ func ExecuteSearch(client *qdrant.Client, search []float32) ([]*qdrant.ScoredPoi
 				Typically used for small collections, for validation, or when you absolutely need exactness.
 				Rule of thumb: Prefer HNSW with a sensible ef; flip Exact to true only when you must.
 			*/
-			Exact: qdrant.PtrOf(false),
+			Exact: qdrant.PtrOf(searchConfig.Exact),
 
 			/*
 				Quantization — control whether to use compressed vectors
@@ -49,7 +66,7 @@ func ExecuteSearch(client *qdrant.Client, search []float32) ([]*qdrant.ScoredPoi
 				Trade-off: you might miss very recent vectors that aren’t indexed yet.
 				Use when: you need predictable latency more than absolute completeness (e.g., tight SLAs).
 			*/
-			IndexedOnly: qdrant.PtrOf(true),
+			IndexedOnly: qdrant.PtrOf(searchConfig.IndexedOnly),
 
 			/*
 				HnswEf — beam size for HNSW (approximate) search
@@ -60,9 +77,9 @@ func ExecuteSearch(client *qdrant.Client, search []float32) ([]*qdrant.ScoredPoi
 
 				When to tweak: If results feel “close but not perfect,” try increasing ef. If latency is too high, lower it.
 			*/
-			HnswEf: qdrant.PtrOf(uint64(200)),
+			HnswEf: qdrant.PtrOf(searchConfig.BeamSize),
 		},
-		ScoreThreshold: qdrant.PtrOf(float32(0.4)),
+		ScoreThreshold: qdrant.PtrOf(searchConfig.ScoreThreshold),
 		WithPayload:    qdrant.NewWithPayloadEnable(true),
 	})
 
@@ -84,13 +101,24 @@ func CreatePointsFromEmbeddings(embeds [][]float32, sourceDocument string, chunk
 	return points
 }
 
+func DefaultClient() *qdrant.Client {
+	config := config.QdrantConfig()
+	client, err := Client(false, config)
+
+	if err != nil {
+		log.Panic(err)
+	}
+
+	return client
+}
+
 // Client returns the singleton *qdrant.Client.
 // The first caller creates the connection and (optionally) the collection.
-func Client(truncate bool) (*qdrant.Client, error) {
+func Client(truncate bool, config config.Qdrant) (*qdrant.Client, error) {
 	once.Do(func() {
 		c, err := qdrant.NewClient(&qdrant.Config{
-			Host: "localhost",
-			Port: 6334,
+			Host: config.Host,
+			Port: config.Port,
 		})
 		if err != nil {
 			initErr = err
