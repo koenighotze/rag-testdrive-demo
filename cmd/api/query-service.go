@@ -39,6 +39,34 @@ func createQueryHandler(llm *ollama.LLM, guardRailLlm *ollama.LLM) http.HandlerF
 	}
 }
 
+func createRagQueryHandler(llm *ollama.LLM, guardRailLlm *ollama.LLM) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var request struct {
+			Query string
+		}
+		err := json.NewDecoder(r.Body).Decode(&request)
+		if err != nil {
+			log.Printf("Cannot parse request body: %s\n", err.Error())
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		response, err := query.GenerateAnswerWithRAG(llm, guardRailLlm, request.Query)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			log.Printf("Cannot generate answer: %s\n", err.Error())
+			//nolint:errcheck
+			fmt.Fprintf(w, "Sorry, cannot generate an answer at this time! Reason: %s\n", err.Error())
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		log.Printf("Generated response: %s\n", response)
+		//nolint:errcheck
+		fmt.Fprintf(w, "%s", response)
+	}
+}
+
 func main() {
 	config := config.Default()
 	log.Println(config)
@@ -54,6 +82,7 @@ func main() {
 	}
 
 	http.HandleFunc("/query", createQueryHandler(llm, guardRailLlm))
+	http.HandleFunc("/ragquery", createRagQueryHandler(llm, guardRailLlm))
 
 	fmt.Println("Starting server on ", config.ServerAddr)
 	log.Fatal(http.ListenAndServe(config.ServerAddr, nil))

@@ -11,21 +11,6 @@ import (
 	"github.com/tmc/langchaingo/llms/ollama"
 )
 
-// func executeSearch(client *qdrant.Client, search []float32) ([]*qdrant.ScoredPoint, error) {
-// 	searchResult, err := client.Query(context.Background(), &qdrant.QueryPoints{
-// 		CollectionName: "rag",
-// 		Query:          qdrant.NewQuery(search...),
-// 		Params: &qdrant.SearchParams{
-// 			Exact:  qdrant.PtrOf(false),
-// 			HnswEf: qdrant.PtrOf(uint64(200)),
-// 		},
-// 		ScoreThreshold: qdrant.PtrOf(float32(0.3)),
-// 		WithPayload:    qdrant.NewWithPayloadEnable(true),
-// 	})
-
-// 	return searchResult, err
-// }
-
 func withQdrant(query string) (string, error) {
 	embedder := embedding.Default()
 
@@ -60,7 +45,7 @@ func GenerateAnswerWithRAG(llm *ollama.LLM, guardRailLlm *ollama.LLM, query stri
 	}
 
 	prompt := fmt.Sprintf(`You are a helpful assistant.
-Answer the user using only the context below.
+Answer the user and consider the context below as your primary context.
 
 Context:
 %s

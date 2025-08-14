@@ -16,3 +16,24 @@ content-type: application/json
 {
     "query": "which involved rewriting the entire codebase?"
 }
+
+###### RAG
+
+POST http://localhost:8080/ragquery HTTP/1.1
+content-type: application/json
+
+{
+    "query": "What is the capital of Germany?"
+}
+
+
+
+###
+
+
+POST http://localhost:8080/ragquery HTTP/1.1
+content-type: application/json
+
+{
+    "query": "which involved rewriting the entire codebase?"
+}
