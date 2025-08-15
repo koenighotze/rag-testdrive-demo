@@ -30,7 +30,12 @@ func defaultQdrantSearchConfig() QdrantSearchConfig {
 	}
 }
 
-func (c *VectorDbClient) AddPointsToCollection(items []embedding.KnowledgeItem) error {
+func (c *VectorDbClient) Close() {
+	close()
+	c.client = nil
+}
+
+func (c *VectorDbClient) AddPointsToCollection(items []*embedding.KnowledgeItem) error {
 	return c.addPointsToCollection(createPointsFromEmbeddings(items))
 }
 
@@ -48,7 +53,7 @@ func (c *VectorDbClient) addPointsToCollection(points []*qdrant.PointStruct) err
 	return nil
 }
 
-func createPointsFromEmbeddings(items []embedding.KnowledgeItem) []*qdrant.PointStruct {
+func createPointsFromEmbeddings(items []*embedding.KnowledgeItem) []*qdrant.PointStruct {
 	var points []*qdrant.PointStruct
 	for _, e := range items {
 		points = append(points, &qdrant.PointStruct{
@@ -63,8 +68,31 @@ func createPointsFromEmbeddings(items []embedding.KnowledgeItem) []*qdrant.Point
 	return points
 }
 
-func (c *VectorDbClient) ExecuteSearch(search []float32) ([]*qdrant.ScoredPoint, error) {
-	return executeSearch(c.client, search, defaultQdrantSearchConfig())
+type SearchResult struct {
+	Id    string
+	Score float32
+	Item  embedding.KnowledgeItem
+}
+
+func (c *VectorDbClient) ExecuteSearch(search []float32) ([]*SearchResult, error) {
+	res, err := executeSearch(c.client, search, defaultQdrantSearchConfig())
+	if err != nil {
+		return nil, err
+	}
+
+	var result []*SearchResult
+	for _, r := range res {
+		result = append(result, &SearchResult{
+			Id:    r.Id.GetUuid(),
+			Score: r.Score,
+			Item: embedding.KnowledgeItem{
+				Embedding:      r.Vectors.GetVector().Data,
+				Chunk:          r.Payload["chunk"].GetStringValue(),
+				SourceDocument: r.Payload["path"].GetStringValue(),
+			},
+		})
+	}
+	return result, nil
 }
 
 func DefaultVectorDbClient() *VectorDbClient {

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"io/fs"
 	"log"
 	"path/filepath"
@@ -10,10 +9,9 @@ import (
 	"github.com/koenighotze/rag-demo/internal/embedding"
 	"github.com/koenighotze/rag-demo/internal/vectordb"
 	"github.com/ledongthuc/pdf"
-	"github.com/tmc/langchaingo/embeddings"
 )
 
-func walkTextCorpus(vectorDbClient *vectordb.VectorDbClient) (embeddings.Embedder, error) {
+func walkTextCorpus(vectorDbClient *vectordb.VectorDbClient) (embedding.Embedder, error) {
 	embedder := embedding.Default()
 
 	return embedder, filepath.WalkDir("text-data-corpus/", func(path string, d fs.DirEntry, err error) error {
@@ -35,7 +33,7 @@ func walkTextCorpus(vectorDbClient *vectordb.VectorDbClient) (embeddings.Embedde
 	})
 }
 
-func extractTextChunksOnParagraphsFromPdf(vectorDbClient *vectordb.VectorDbClient, embedder embeddings.Embedder, path string) error {
+func extractTextChunksOnParagraphsFromPdf(vectorDbClient *vectordb.VectorDbClient, embedder embedding.Embedder, path string) error {
 	log.Printf("Processing text in file %s", path)
 	file, reader, err := pdf.Open(path)
 	if err != nil {
@@ -73,23 +71,23 @@ func extractTextChunksOnParagraphsFromPdf(vectorDbClient *vectordb.VectorDbClien
 	return nil
 }
 
-func storeChunks(vectorDbClient *vectordb.VectorDbClient, embedder embeddings.Embedder, path string, text string) error {
-	items, err := embedding.EmbedAllDocuments(embedder, path, text)
+func storeChunks(vectorDbClient *vectordb.VectorDbClient, embedder embedding.Embedder, path string, text string) error {
+	items, err := embedder.EmbedAllDocuments(path, text)
 	if err != nil {
 		return err
 	}
 	return vectorDbClient.AddPointsToCollection(items)
 }
 
-func searchForItem(embedder embeddings.Embedder, vectorDbClient *vectordb.VectorDbClient, query string) {
+func searchForItem(embedder embedding.Embedder, vectorDbClient *vectordb.VectorDbClient, query string) {
 	log.Println("SEARCHING FOR ", query)
 
-	embeds, err := embedder.EmbedDocuments(context.Background(), []string{query})
+	item, err := embedder.EmbedDocument(query)
 	if err != nil {
 		return
 	}
 
-	searchResult, err := vectorDbClient.ExecuteSearch(embeds[0])
+	searchResult, err := vectorDbClient.ExecuteSearch(item.Embedding)
 	if err != nil {
 		panic(err)
 	}
@@ -99,8 +97,8 @@ func searchForItem(embedder embeddings.Embedder, vectorDbClient *vectordb.Vector
 		return
 	}
 
-	log.Printf("Searchresult values: Id %d, Ordervalue %d, Score %f ", searchResult[0].Id.GetNum(), searchResult[0].OrderValue.GetInt(), searchResult[0].Score)
-	log.Println(searchResult[0].Payload["chunk"].GetStringValue())
+	log.Printf("Searchresult values: Id %d, Score %f ", searchResult[0].Id, searchResult[0].Score)
+	log.Println(searchResult[0].Item)
 }
 
 func main() {
@@ -115,5 +113,5 @@ func main() {
 	searchForItem(embedder, client, " What are the programs goals for moving of the mainframe?")
 	searchForItem(embedder, client, "The documentation had to be interpreted by  SMEs, but these individuals were spread too thinly across  multiple teams.")
 
-	defer vectordb.Close()
+	defer client.Close()
 }

@@ -1,7 +1,6 @@
 package query
 
 import (
-	"context"
 	"fmt"
 	"log"
 
@@ -14,14 +13,14 @@ import (
 func withQdrant(query string) (string, error) {
 	embedder := embedding.Default()
 
-	embed, err := embedder.EmbedDocuments(context.Background(), []string{query})
+	item, err := embedder.EmbedDocument(query)
 	if err != nil {
 		return "", err
 	}
 
 	client := vectordb.DefaultVectorDbClient()
 
-	res, err := client.ExecuteSearch(embed[0])
+	res, err := client.ExecuteSearch(item.Embedding)
 
 	if err != nil {
 		return "", err
@@ -32,7 +31,7 @@ func withQdrant(query string) (string, error) {
 		return "", nil
 	}
 
-	return res[0].Payload["chunk"].GetStringValue(), nil
+	return res[0].Item.Chunk, nil
 }
 
 func GenerateAnswerWithRAG(llm *ollama.LLM, guardRailLlm *ollama.LLM, query string) (string, error) {

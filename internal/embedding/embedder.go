@@ -16,32 +16,50 @@ type KnowledgeItem struct {
 	Chunk          string
 }
 
-func EmbedAllDocuments(embedder embeddings.Embedder, path string, text string) ([]KnowledgeItem, error) {
+type Embedder struct {
+	embedder embeddings.Embedder
+}
+
+func (e *Embedder) EmbedDocument(text string) (*KnowledgeItem, error) {
+	embedding, err := e.embedder.EmbedDocuments(context.Background(), []string{text})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return embeddingToKowledgeItem(embedding[0], "", text), nil
+}
+
+func (e *Embedder) EmbedAllDocuments(path string, text string) ([]*KnowledgeItem, error) {
 	if len(text) <= 0 {
-		return []KnowledgeItem{}, nil
+		return []*KnowledgeItem{}, nil
 	}
 
 	chunks, err := textsplitter.NewTokenSplitter().SplitText(text)
 	if err != nil {
-		return []KnowledgeItem{}, err
+		return nil, err
 	}
-	embeds, err := embedder.EmbedDocuments(context.Background(), chunks)
+	embeds, err := e.embedder.EmbedDocuments(context.Background(), chunks)
 	log.Printf("Generated embeddings with size %d for text of length %d", len(embeds), len(text))
 	if err != nil {
-		return []KnowledgeItem{}, err
+		return nil, err
 	}
 
 	return embeddingsToKnowledgeItems(embeds, path, chunks), nil
 }
 
-func embeddingsToKnowledgeItems(embeds [][]float32, sourceDocument string, chunks []string) []KnowledgeItem {
-	var items []KnowledgeItem
+func embeddingToKowledgeItem(embedding []float32, sourceDocument string, chunk string) *KnowledgeItem {
+	return &KnowledgeItem{
+		Embedding:      embedding,
+		Chunk:          chunk,
+		SourceDocument: sourceDocument,
+	}
+}
+
+func embeddingsToKnowledgeItems(embeds [][]float32, sourceDocument string, chunks []string) []*KnowledgeItem {
+	var items []*KnowledgeItem
 	for i, e := range embeds {
-		items = append(items, KnowledgeItem{
-			Embedding:      e,
-			Chunk:          chunks[i],
-			SourceDocument: sourceDocument,
-		})
+		items = append(items, embeddingToKowledgeItem(e, sourceDocument, chunks[i]))
 	}
 	return items
 }
@@ -64,10 +82,12 @@ func newEmbedder(embedderClient embeddings.EmbedderClient) embeddings.Embedder {
 	return embedder
 }
 
-func NewEmbedder(config config.Embedding) embeddings.Embedder {
-	return newEmbedder(newEmbedderModel(config.ModelName))
+func NewEmbedder(config config.Embedding) Embedder {
+	return Embedder{
+		embedder: newEmbedder(newEmbedderModel(config.ModelName)),
+	}
 }
 
-func Default() embeddings.Embedder {
+func Default() Embedder {
 	return NewEmbedder(config.Default().Embedding)
 }

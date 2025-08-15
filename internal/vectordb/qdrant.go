@@ -136,7 +136,7 @@ func newClient(truncate bool, config config.Qdrant) (*qdrant.Client, error) {
 	return client, initErr
 }
 
-func Close() {
+func close() {
 	if client == nil {
 		return
 	}
